@@ -1,0 +1,142 @@
+Versão 2 Fazendo a parte da automação que faz o login e depois vai para a parte de resolução do CaptCha:
+
+Descrição: 
+Descrição do Funcionamento
+1. Configuração de Logging
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    handlers=[logging.FileHandler("automation.log"), logging.StreamHandler()])
+logger = logging.getLogger(__name__)
+
+    Propósito: Configura o sistema de logs para registrar eventos importantes do script, como sucesso, erros e etapas executadas. Isso ajuda no monitoramento e depuração.
+    Funcionamento:
+        Os logs são gravados em um arquivo chamado automation.log e também exibidos no terminal.
+        O nível de log é configurado como DEBUG, garantindo que todas as mensagens (informativas, warnings e erros) sejam registradas.
+
+2. Classe Principal: AntCaptchaAutomation
+2.1. Método __init__
+
+def __init__(self):
+    ...
+    if not os.path.exists('./api.zip'):
+        logger.info("Plugin compactado não encontrado. Compactando o plugin...")
+        self.configure_antcaptcha_plugin()
+    else:
+        logger.info("Plugin compactado encontrado. Usando o plugin existente.")
+
+    chrome_options.add_extension('./api.zip')
+    self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    self.wait = WebDriverWait(self.driver, 20)
+
+    Propósito: Inicializa a automação configurando o navegador, o plugin AntCaptcha e o WebDriver.
+    Funcionamento:
+        Verifica se o arquivo compactado api.zip já existe.
+            Se não existir, chama o método configure_antcaptcha_plugin para criar e configurar o plugin.
+            Se existir, utiliza diretamente o arquivo api.zip.
+        Configura as opções do navegador:
+            Adiciona o plugin do AntCaptcha.
+            Define ajustes importantes como --no-sandbox e --disable-dev-shm-usage.
+        Inicia o ChromeDriver utilizando o gerenciador webdriver_manager.chrome.
+
+2.2. Método configure_antcaptcha_plugin
+
+def configure_antcaptcha_plugin(self):
+    api_key = chave_api
+    config_path = Path('./api/js/config_ac_api_key.js')
+    config_path.write_text(
+        config_path.read_text().replace("antiCapthaPredefinedApiKey = ''", f"antiCapthaPredefinedApiKey = '{api_key}'")
+    )
+
+    with zipfile.ZipFile('./api.zip', 'w', zipfile.ZIP_DEFLATED) as api_zip:
+        for root, dirs, files in os.walk('./api'):
+            for file in files:
+                file_path = os.path.join(root, file)
+                api_zip.write(file_path, arcname=os.path.relpath(file_path, './api'))
+
+    Propósito: Configura a chave da API do AntCaptcha e compacta a pasta do plugin.
+    Funcionamento:
+        Substitui o placeholder da chave de API no arquivo config_ac_api_key.js pela chave fornecida no arquivo chave.py.
+        Compacta o diretório api em um arquivo api.zip para ser usado como extensão do navegador.
+
+3. Métodos Principais de Automação
+3.1. Método access_site
+
+def access_site(self, url):
+    self.driver.get(url)
+    self.driver.maximize_window()
+    logger.info(f"Acessou o site: {url}")
+
+    Propósito: Navega até o site inicial e maximiza a janela do navegador.
+    Funcionamento:
+        Usa o método get do Selenium para abrir a URL fornecida.
+        Maximiza a janela para garantir que todos os elementos da página estejam visíveis.
+
+3.2. Método login_with_certificate
+
+def login_with_certificate(self):
+    self.wait.until(EC.element_to_be_clickable((By.NAME, 'btt_certificado'))).click()
+    pyautogui.press('enter')
+    logger.info("Login com certificado digital realizado com sucesso.")
+
+    Propósito: Realiza login com um certificado digital.
+    Funcionamento:
+        Aguarda que o botão para selecionar o certificado esteja disponível e clica nele.
+        Usa pyautogui para pressionar a tecla Enter, selecionando o certificado digital automaticamente.
+
+3.3. Método navigate_and_resolve_captcha
+
+def navigate_and_resolve_captcha(self, url):
+    self.driver.get(url)
+    WebDriverWait(self.driver, 120).until(
+        lambda d: d.execute_script("return document.getElementById('g-recaptcha-response') && document.getElementById('g-recaptcha-response').value !== '';")
+    )
+    logger.info("CAPTCHA resolvido com sucesso.")
+
+    Propósito: Navega para a página desejada e resolve o CAPTCHA usando o plugin AntCaptcha.
+    Funcionamento:
+        Abre a URL fornecida.
+        Aguarda que o valor do elemento g-recaptcha-response seja preenchido pelo plugin, indicando que o CAPTCHA foi resolvido.
+
+3.4. Método run
+
+def run(self):
+    self.access_site("https://efisco.sefaz.pe.gov.br/sfi_com_sca/PRMontarMenuAcesso")
+    self.login_with_certificate()
+    self.navigate_and_resolve_captcha("http://nfe.sefaz.pe.gov.br/nfe-web/entradaConsNfe?tp=C&_nmJanelaAuxiliar=janelaAuxiliar")
+    logger.info("Até aqui realizado com sucesso.")
+
+    Propósito: Orquestra o fluxo completo da automação.
+    Funcionamento:
+        Chama o método access_site para abrir o site inicial.
+        Executa o login com o método login_with_certificate.
+        Navega para a URL específica e resolve o CAPTCHA.
+        Finaliza registrando que o processo foi concluído com sucesso.
+
+3.5. Método close_browser
+
+def close_browser(self):
+    self.driver.quit()
+    logger.info("Navegador fechado com sucesso.")
+
+    Propósito: Fecha o navegador ao final da execução.
+    Funcionamento:
+        Usa o método quit do Selenium para encerrar a instância do navegador.
+
+4. Execução do Script
+
+if __name__ == "__main__":
+    automation = AntCaptchaAutomation()
+    automation.run()
+
+    Propósito: Ponto de entrada do programa.
+    Funcionamento:
+        Cria uma instância da classe AntCaptchaAutomation.
+        Chama o método run para iniciar o fluxo completo de automação.
+
+Resumo do Fluxo Geral
+
+    Inicialização: Configura o navegador e verifica se o plugin está compactado.
+    Acesso ao Site Inicial: Abre a página inicial e realiza login com o certificado digital.
+    Navegação e CAPTCHA: Navega até a URL final e resolve o CAPTCHA com o plugin.
+    Encerramento: Finaliza o fluxo com uma mensagem de sucesso e fecha o navegador.

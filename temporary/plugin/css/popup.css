@@ -1,0 +1,18 @@
+:root {
+  font-size: 16px;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  padding: 0;
+  margin: 0;
+}
+body {
+  font-family: 'Open Sans', sans-serif;
+  width: 530px;
+  padding: 0;
+  margin: 0;
+  background: radial-gradient(233px at 50% 50%, #4074B7 0%, #224066 100%);
+  font-size: 75%;
+}
